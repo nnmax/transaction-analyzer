@@ -2,6 +2,10 @@ import os
 import re
 import math
 import traceback
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # 模拟JavaScript的parseFloat函数行为
 def parse_float(s):
