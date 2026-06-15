@@ -2,9 +2,6 @@ import os
 import re
 import math
 import traceback
-import pandas as pd
-
-print(pd.__version__)
 
 # 模拟JavaScript的parseFloat函数行为
 def parse_float(s):

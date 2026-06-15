@@ -74,7 +74,14 @@ jobs:
 
       - name: Smoke-test executable
         shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
         run: |
+          chcp 65001 | Out-Null
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding          = [System.Text.Encoding]::UTF8
+
           $testDir = Join-Path $env:RUNNER_TEMP "smoketest"
           New-Item -ItemType Directory -Force -Path $testDir | Out-Null
           Copy-Item "dist/$($env:EXE_NAME).exe" $testDir
