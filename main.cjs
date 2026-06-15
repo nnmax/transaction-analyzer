@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const readline = require('readline');
 
 // 查找当前目录的第一个 .txt 文件
@@ -79,11 +78,10 @@ async function sumNumbersAfterKeyword() {
 sumNumbersAfterKeyword();
 
 /**
- * 读取 a.txt，统计交易类型为「实时缴税」的笔数与借方发生额合计
+ * 统计交易类型为「实时缴税」的笔数与借方发生额合计
  */
 async function countRealtimeTaxFromA() {
-    const filePath = path.join(__dirname, 'a.txt');
-    const stream = fs.createReadStream(filePath);
+    const stream = fs.createReadStream(txtFile);
     const rl = readline.createInterface({
         input: stream,
         crlfDelay: Infinity

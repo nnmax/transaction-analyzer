@@ -66,7 +66,7 @@ def main():
 
         count_lines_with_number(txt_file)
         sum_numbers_after_keyword(txt_file)
-        count_realtime_tax_from_a()
+        count_realtime_tax_from_a(txt_file)
     
     except Exception as e:
         print(f"程序运行出错: {e}")
@@ -141,20 +141,14 @@ def sum_numbers_after_keyword(txt_file):
         print(f"统计借贷方合计时出错: {e}")
 
 """
-读取 a.txt，统计交易类型为「实时缴税」的笔数与借方发生额合计
+统计交易类型为「实时缴税」的笔数与借方发生额合计
 """
-def count_realtime_tax_from_a():
-    file_path = os.path.join(os.path.dirname(__file__), 'a.txt')
-
-    if not os.path.exists(file_path):
-        print('未找到 a.txt 文件')
-        return
-
+def count_realtime_tax_from_a(txt_file):
     count = 0
     debit_sum = 0
 
     try:
-        with open_file_with_encoding(file_path, 'r') as file:
+        with open_file_with_encoding(txt_file, 'r') as file:
             for line in file:
                 parts = line.split('|')
                 if len(parts) <= 8:
