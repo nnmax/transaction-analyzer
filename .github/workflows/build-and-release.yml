@@ -1,0 +1,112 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (defaults to today's date YYYY.MM.DD)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Windows exe and publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pandas
+
+      - name: Compute version
+        shell: pwsh
+        run: |
+          $ver = if ($env:INPUT_VERSION -and $env:INPUT_VERSION.Trim() -ne "") {
+            $env:INPUT_VERSION.Trim()
+          } else {
+            Get-Date -Format 'yyyy.MM.dd'
+          }
+          $tag = "v$ver"
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TAG=$tag"     | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "EXE_NAME=transactionAnalyzer-$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Resolved version: $ver  (tag: $tag)"
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - name: Build executable with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller --onefile --name "$env:EXE_NAME" main.py
+          if (-not (Test-Path "dist/$($env:EXE_NAME).exe")) {
+            throw "Expected dist/$($env:EXE_NAME).exe not found"
+          }
+          Get-ChildItem dist
+
+      - name: Generate demo.txt
+        shell: pwsh
+        run: |
+          $lines = @(
+            '| 1 |260501|260501|批量收费|    |对公账户维护费 |   25.00|        |  16,423,196.06|00557|',
+            '| 2 |260506|260506|小额普通|    |BEPS...        |        |  895.00|  16,424,091.06|14550|',
+            '| 3 |260507|260507|实时缴税|9001|tax-a          |5,678.69|        |  16,448,412.37|14571|',
+            '| 4 |260508|260508|实时缴税|3003|tax-b          |1,000.00|        |  16,449,412.37|14571|',
+            '借方合计 6,703.69',
+            '贷方合计 895.00'
+          )
+          $utf8 = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllLines("$PWD\demo.txt", $lines, $utf8)
+          Write-Host "--- demo.txt ---"
+          Get-Content demo.txt
+
+      - name: Smoke-test executable
+        shell: pwsh
+        run: |
+          $testDir = Join-Path $env:RUNNER_TEMP "smoketest"
+          New-Item -ItemType Directory -Force -Path $testDir | Out-Null
+          Copy-Item "dist/$($env:EXE_NAME).exe" $testDir
+          Copy-Item "demo.txt" $testDir
+          Push-Location $testDir
+          try {
+            $out = "`n" | & ".\$($env:EXE_NAME).exe" 2>&1 | Out-String
+            Write-Host "--- exe output ---"
+            Write-Host $out
+            if ($LASTEXITCODE -ne 0) { throw "exe exited with code $LASTEXITCODE" }
+            if ($out -notmatch '借方笔数')     { throw "missing 借方笔数 in output" }
+            if ($out -notmatch '借方合记')     { throw "missing 借方合记 in output" }
+            if ($out -notmatch '实时缴税笔数') { throw "missing 实时缴税 in output" }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Release ${{ env.VERSION }}
+          body: |
+            Automated release built from `main.py` on windows-latest.
+
+            - Executable: `${{ env.EXE_NAME }}.exe`
+            - Demo input: `demo.txt`
+            - Built with PyInstaller `--onefile`, Python 3.12
+
+            Place the `.exe` and any `*.txt` transaction file in the same folder, then double-click the `.exe`.
+          files: |
+            dist/${{ env.EXE_NAME }}.exe
+            demo.txt
+          fail_on_unmatched_files: true
